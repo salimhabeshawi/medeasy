@@ -1,0 +1,56 @@
+### Laravel ###
+/vendor
+/node_modules
+/public/hot
+/public/storage
+/public/build
+/bootstrap/cache/*.php
+!/bootstrap/cache/.gitignore
+/storage/*.key
+/storage/pail
+/storage/app/*
+!/storage/app/public
+/storage/app/public/*
+!/storage/app/public/.gitignore
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+/database/database.sqlite
+/database/*.sqlite-journal
+
+### Environment / secrets ###
+.env
+.env.backup
+.env.production
+.env.*.local
+auth.json
+
+### Composer ###
+composer.phar
+/composer.lock.bak
+
+### Testing ###
+.phpunit.result.cache
+.phpunit.cache
+/coverage
+/tests/Browser/screenshots/*
+/tests/Browser/console/*
+
+### IDE helper (barryvdh/laravel-ide-helper) ###
+_ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+
+### Sail / Docker ###
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+
+### Frontend
