@@ -18,6 +18,8 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', Password::min(8)],
+            'year' => ['required', 'integer', 'min:1', 'max:7'],
+            'semester' => ['required', 'integer', 'min:1', 'max:2'],
         ]);
 
         if ($validator->fails()) {
@@ -31,6 +33,8 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => 'student',
+            'year' => $request->integer('year'),
+            'semester' => $request->integer('semester'),
         ]);
 
         $token = $user->createToken('api-token')->plainTextToken;

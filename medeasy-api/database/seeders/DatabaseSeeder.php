@@ -40,6 +40,8 @@ class DatabaseSeeder extends Seeder
                 'title' => $data['title'],
                 'description' => $data['description'],
                 'is_published' => true,
+                'year' => $data['year'] ?? 1,
+                'semester' => $data['semester'] ?? 1,
                 'created_by' => $admin->id,
             ]
         );
@@ -83,6 +85,8 @@ class DatabaseSeeder extends Seeder
         return [
             [
                 'slug' => 'human-anatomy',
+                'year' => 1,
+                'semester' => 1,
                 'title' => 'Human Anatomy',
                 'description' => 'Core anatomy concepts every med student needs cold.',
                 'chapters' => [
@@ -198,6 +202,8 @@ TXT,
             ],
             [
                 'slug' => 'human-physiology',
+                'year' => 1,
+                'semester' => 2,
                 'title' => 'Human Physiology',
                 'description' => 'How the healthy body works: cardiovascular, renal, and respiratory physiology.',
                 'chapters' => [
@@ -339,6 +345,8 @@ TXT,
             ],
             [
                 'slug' => 'pharmacology',
+                'year' => 2,
+                'semester' => 1,
                 'title' => 'Pharmacology',
                 'description' => 'Drug classes, mechanisms of action, and high-yield side effects.',
                 'chapters' => [
@@ -481,6 +489,8 @@ TXT,
             ],
             [
                 'slug' => 'biochemistry',
+                'year' => 2,
+                'semester' => 2,
                 'title' => 'Biochemistry',
                 'description' => 'Metabolic pathways, molecular biology, and clinical correlations.',
                 'chapters' => [
@@ -655,6 +665,8 @@ TXT,
             ],
             [
                 'slug' => 'microbiology',
+                'year' => 3,
+                'semester' => 1,
                 'title' => 'Microbiology',
                 'description' => 'Bacteria, viruses, fungi, and parasites — classification and disease.',
                 'chapters' => [
@@ -814,6 +826,8 @@ TXT,
             ],
             [
                 'slug' => 'pathology',
+                'year' => 3,
+                'semester' => 2,
                 'title' => 'Pathology',
                 'description' => 'Mechanisms of disease: inflammation, cell injury, and neoplasia.',
                 'chapters' => [

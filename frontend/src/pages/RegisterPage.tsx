@@ -2,21 +2,33 @@ import { FormEvent, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ClipboardPlus } from 'lucide-react';
 import { ApiError } from '../lib/api';
+import { homePath } from '../lib/navigation';
 import { useAuth } from '../providers/auth-context';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PasswordField } from '../components/PasswordField';
 
 export function RegisterPage() {
-  const { register, token } = useAuth();
+  const { register, token, user, isBooting } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', password_confirmation: '' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    year: 1,
+    semester: 1,
+  });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  if (isBooting) {
+    return null;
+  }
+
   if (token) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -26,8 +38,8 @@ export function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await register(form);
-      navigate('/dashboard', { replace: true });
+      const registered = await register(form);
+      navigate(homePath(registered), { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.errors ?? {});
@@ -40,7 +52,7 @@ export function RegisterPage() {
     }
   }
 
-  function update(field: keyof typeof form, value: string) {
+  function update(field: keyof typeof form, value: string | number) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -72,6 +84,28 @@ export function RegisterPage() {
               {errors[field] ? <span className="text-sm font-bold text-vital-red">{errors[field][0]}</span> : null}
             </label>
           ))}
+          <div className="grid gap-4">
+            <label className="grid gap-2 font-semibold">
+              Year
+              <select
+                className="min-h-12 border-2 border-ink bg-paper px-3 shadow-hard"
+                value={form.year}
+                onChange={(event) => update('year', Number(event.target.value))}
+                required
+              >
+                <option value="" disabled>
+                  Select your year
+                </option>
+                {Array.from({ length: 7 }, (_, index) => index + 1).map((year) => (
+                  <option key={year} value={year}>
+                    Year {year}
+                  </option>
+                ))}
+              </select>
+              {errors.year ? <span className="text-sm font-bold text-vital-red">{errors.year[0]}</span> : null}
+            </label>
+          </div>
+
           <PasswordField
             label="Password"
             value={form.password}
@@ -88,7 +122,7 @@ export function RegisterPage() {
             autoComplete="new-password"
             required
           />
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" variant="blue" disabled={submitting}>
             {submitting ? 'Creating' : 'Create account'}
           </Button>
         </form>

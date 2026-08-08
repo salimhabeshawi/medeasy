@@ -21,6 +21,12 @@ class CourseController extends Controller
             $query->where('is_published', true);
         }
 
+        // Optional year/semester filters let a student land on their own
+        // term without losing the ability to browse every year/semester.
+        if ($request->filled('year') && $request->filled('semester')) {
+            $query->where('year', $request->integer('year'))->where('semester', $request->integer('semester'));
+        }
+
         $courses = $query->with([
             'chapters.topics.progress' => fn ($query) => $query->where('user_id', $request->user()->id),
         ])->latest()->get();

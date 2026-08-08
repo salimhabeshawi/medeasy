@@ -6,11 +6,9 @@ import { Card } from './Card';
 
 export function CourseOutline({
   outline,
-  currentTopicId,
   onCollapse,
 }: {
   outline: TopicOutline;
-  currentTopicId: number;
   onCollapse?: () => void;
 }) {
   const [openChapters, setOpenChapters] = useState<Set<number>>(() => new Set(outline.chapters.map((chapter) => chapter.id)));
@@ -28,7 +26,7 @@ export function CourseOutline({
   }
 
   return (
-    <Card className="p-4 sm:p-5">
+    <Card className="w-full min-w-0 overflow-hidden p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <NavLink
           className="flex min-w-0 items-center gap-2 font-display text-base font-bold leading-tight hover:underline"
@@ -48,7 +46,7 @@ export function CourseOutline({
           </button>
         ) : null}
       </div>
-      <div className="mt-4 grid gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2">
         {outline.chapters.map((chapter) => {
           const isOpen = openChapters.has(chapter.id);
           return (
@@ -66,7 +64,7 @@ export function CourseOutline({
                 {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />}
               </button>
               {isOpen ? (
-                <div className="mt-1 grid gap-1 pl-2">
+                <div className="mt-1 grid grid-cols-1 gap-1 pl-2">
                   {chapter.topics.map((topic) => (
                     <NavLink
                       key={topic.id}

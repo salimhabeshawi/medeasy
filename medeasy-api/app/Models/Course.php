@@ -17,6 +17,8 @@ class Course extends Model
         'description',
         'cover_image_path',
         'is_published',
+        'year',
+        'semester',
         'created_by',
     ];
 
@@ -24,6 +26,8 @@ class Course extends Model
     {
         return [
             'is_published' => 'boolean',
+            'year' => 'integer',
+            'semester' => 'integer',
         ];
     }
 

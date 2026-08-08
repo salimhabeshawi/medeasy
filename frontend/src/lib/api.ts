@@ -67,7 +67,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
-  register(input: { name: string; email: string; password: string; password_confirmation: string }) {
+  register(input: { name: string; email: string; password: string; password_confirmation: string; year: number; semester: number }) {
     return request<AuthResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
@@ -93,8 +93,10 @@ export const api = {
       body: JSON.stringify(input),
     });
   },
-  courses() {
-    return request<Course[]>('/courses');
+  courses(year?: number, semester?: number) {
+    const query =
+      year !== undefined && semester !== undefined ? `?year=${year}&semester=${semester}` : '';
+    return request<Course[]>(`/courses${query}`);
   },
   course(slug: string) {
     return request<Course>(`/courses/${slug}`);
@@ -114,10 +116,10 @@ export const api = {
   continueTopic() {
     return request<ContinueTopic | null>('/dashboard/continue');
   },
-  createCourse(input: { title: string; slug: string; description?: string | null; is_published?: boolean }) {
+  createCourse(input: { title: string; slug: string; description?: string | null; year: number; semester: number; is_published?: boolean }) {
     return request<Course>('/courses', { method: 'POST', body: JSON.stringify(input) });
   },
-  updateCourse(id: number, input: { title: string; slug: string; description?: string | null; is_published?: boolean }) {
+  updateCourse(id: number, input: { title: string; slug: string; description?: string | null; year: number; semester: number; is_published?: boolean }) {
     return request<Course>(`/courses/${id}`, { method: 'PUT', body: JSON.stringify(input) });
   },
   deleteCourse(id: number) {

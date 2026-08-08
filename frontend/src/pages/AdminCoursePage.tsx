@@ -1,7 +1,9 @@
-import { BookOpen, ChevronDown, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Eye, EyeOff, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
+import { slugify } from '../lib/slugify';
+import { useTitleSlug } from '../lib/use-title-slug';
 import type { Chapter, ContentItem, Course, Topic } from '../types/api';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -20,7 +22,18 @@ export function AdminCoursePage() {
   const [openChapters, setOpenChapters] = useState<Set<number>>(new Set());
   const [openTopics, setOpenTopics] = useState<Set<number>>(new Set());
   const [topicItems, setTopicItems] = useState<Record<number, ContentItem[]>>({});
-  const [message, setMessage] = useState('');
+  const [flash, setFlash] = useState<{ text: string; kind: 'success' | 'error' } | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
+
+  function showFlash(text: string, kind: 'success' | 'error' = 'success') {
+    setFlash({ text, kind });
+    window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash(null), 3000);
+  }
+
+  useEffect(() => {
+    return () => window.clearTimeout(flashTimer.current);
+  }, []);
 
   useEffect(() => {
     if (!courseSlug) {
@@ -82,6 +95,27 @@ export function AdminCoursePage() {
     setTopicItems((current) => ({ ...current, [topicId]: topic.content_items ?? [] }));
   }
 
+  async function togglePublish() {
+    if (!course) {
+      return;
+    }
+    const next = !course.is_published;
+    try {
+      await api.updateCourse(course.id, {
+        title: course.title,
+        slug: course.slug,
+        description: course.description ?? null,
+        year: course.year,
+        semester: course.semester,
+        is_published: next,
+      });
+      await reload();
+      showFlash(next ? 'Course published — students can now see it.' : 'Course unpublished — hidden from students.');
+    } catch (publishError) {
+      showFlash(publishError instanceof Error ? publishError.message : 'Update failed.', 'error');
+    }
+  }
+
   async function deleteCourse() {
     if (!course || !window.confirm(`Delete "${course.title}" and all of its content? This cannot be undone.`)) {
       return;
@@ -90,7 +124,7 @@ export function AdminCoursePage() {
       await api.deleteCourse(course.id);
       navigate('/admin');
     } catch (deleteError) {
-      setMessage(deleteError instanceof Error ? deleteError.message : 'Delete failed.');
+      showFlash(deleteError instanceof Error ? deleteError.message : 'Delete failed.', 'error');
     }
   }
 
@@ -111,9 +145,25 @@ export function AdminCoursePage() {
               Admin console
             </Link>
             <h1 className="mt-3 font-display text-4xl font-bold">{course.title}</h1>
-            <p className="mt-1 text-sm font-semibold text-ink/70">/{course.slug}</p>
+            <p className="mt-1 text-sm font-semibold text-ink/70">
+              /{course.slug}
+              <span
+                className={`ml-2 inline-block rounded-full border-2 border-ink px-2 py-0.5 font-mono text-[11px] font-bold uppercase ${
+                  course.is_published ? 'bg-pulse-green' : 'bg-chart-yellow'
+                }`}
+              >
+                {course.is_published ? 'published' : 'draft'}
+              </span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant={course.is_published ? 'yellow' : 'green'}
+              onClick={togglePublish}
+              icon={course.is_published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            >
+              {course.is_published ? 'Unpublish' : 'Publish'}
+            </Button>
             <Button variant="secondary" onClick={() => setEditingCourse((value) => !value)} icon={<Pencil className="h-4 w-4" />}>
               Edit course
             </Button>
@@ -125,7 +175,13 @@ export function AdminCoursePage() {
         {editingCourse ? <CourseEditForm course={course} onDone={reload} /> : null}
       </Card>
 
-      {message ? <div className="rounded-[10px] border-2 border-ink bg-vital-red p-3 text-sm font-bold">{message}</div> : null}
+      {flash ? (
+        <div
+          className={`rounded-[10px] border-2 border-ink p-3 text-sm font-bold ${flash.kind === 'success' ? 'bg-pulse-green' : 'bg-vital-red'}`}
+        >
+          {flash.text}
+        </div>
+      ) : null}
 
       <AddChapterForm courseId={course.id} onCreated={reload} />
 
@@ -200,17 +256,19 @@ export function AdminCoursePage() {
 }
 
 function CourseEditForm({ course, onDone }: { course: Course; onDone: () => Promise<void> | void }) {
+  const slugSync = useTitleSlug();
   const [form, setForm] = useState({
     title: course.title,
     slug: course.slug,
     description: course.description ?? '',
-    is_published: course.is_published,
+    year: course.year,
+    semester: course.semester,
   });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  function update(field: keyof typeof form, value: string | boolean) {
+  function update(field: keyof typeof form, value: string | number | boolean) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -224,7 +282,8 @@ function CourseEditForm({ course, onDone }: { course: Course; onDone: () => Prom
         title: form.title,
         slug: form.slug,
         description: form.description || null,
-        is_published: form.is_published,
+        year: form.year,
+        semester: form.semester,
       });
       await onDone();
       setMessage('Course updated.');
@@ -249,19 +308,42 @@ function CourseEditForm({ course, onDone }: { course: Course; onDone: () => Prom
         </div>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Title" value={form.title} onChange={(value) => update('title', value)} error={errors.title?.[0]} />
-        <FormField label="Slug" value={form.slug} onChange={(value) => update('slug', value)} error={errors.slug?.[0]} />
+        <FormField label="Title" value={form.title} onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))} error={errors.title?.[0]} />
+        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))} error={errors.slug?.[0]} />
       </div>
       <FormField label="Description" value={form.description} onChange={(value) => update('description', value)} textarea error={errors.description?.[0]} />
-      <label className="flex items-center gap-2 font-semibold">
-        <input
-          type="checkbox"
-          className="h-5 w-5 border-2 border-ink"
-          checked={form.is_published}
-          onChange={(event) => update('is_published', event.target.checked)}
-        />
-        Published (visible to students)
-      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-2 font-semibold">
+          Year
+          <select
+            className="min-h-12 border-2 border-ink bg-paper px-3 shadow-hard"
+            value={form.year}
+            onChange={(event) => update('year', Number(event.target.value))}
+          >
+            {Array.from({ length: 7 }, (_, index) => index + 1).map((value) => (
+              <option key={value} value={value}>
+                Year {value}
+              </option>
+            ))}
+          </select>
+          {errors.year?.[0] ? <span className="text-sm font-bold text-vital-red">{errors.year[0]}</span> : null}
+        </label>
+        <label className="grid gap-2 font-semibold">
+          Semester
+          <select
+            className="min-h-12 border-2 border-ink bg-paper px-3 shadow-hard"
+            value={form.semester}
+            onChange={(event) => update('semester', Number(event.target.value))}
+          >
+            {[1, 2].map((value) => (
+              <option key={value} value={value}>
+                Semester {value}
+              </option>
+            ))}
+          </select>
+          {errors.semester?.[0] ? <span className="text-sm font-bold text-vital-red">{errors.semester[0]}</span> : null}
+        </label>
+      </div>
       <div>
         <Button type="submit" disabled={submitting}>
           {submitting ? 'Saving' : 'Save course'}
@@ -272,6 +354,7 @@ function CourseEditForm({ course, onDone }: { course: Course; onDone: () => Prom
 }
 
 function AddChapterForm({ courseId, onCreated }: { courseId: number; onCreated: () => Promise<void> | void }) {
+  const slugSync = useTitleSlug();
   const [form, setForm] = useState({ title: '', slug: '', description: '' });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState('');
@@ -290,6 +373,7 @@ function AddChapterForm({ courseId, onCreated }: { courseId: number; onCreated: 
         description: form.description || null,
       });
       setForm({ title: '', slug: '', description: '' });
+      slugSync.resetSlugSync();
       await onCreated();
     } catch (saveError) {
       if (saveError instanceof ApiError) {
@@ -308,8 +392,8 @@ function AddChapterForm({ courseId, onCreated }: { courseId: number; onCreated: 
       <h2 className="font-display text-xl font-bold">Add chapter</h2>
       {message ? <div className="mt-2 rounded-[10px] border-2 border-ink bg-vital-red p-3 text-sm font-bold">{message}</div> : null}
       <form className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto]" onSubmit={onSubmit}>
-        <FormField label="Title" value={form.title} onChange={(value) => setForm((c) => ({ ...c, title: value, slug: c.slug || slugify(value) }))} error={errors.title?.[0]} />
-        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((c) => ({ ...c, slug: value }))} error={errors.slug?.[0]} />
+        <FormField label="Title" value={form.title} onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))} error={errors.title?.[0]} />
+        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))} error={errors.slug?.[0]} />
         <FormField label="Description" value={form.description} onChange={(value) => setForm((c) => ({ ...c, description: value }))} error={errors.description?.[0]} />
         <div className="flex items-end">
           <Button type="submit" disabled={submitting} icon={<Plus className="h-4 w-4" />}>
@@ -322,6 +406,7 @@ function AddChapterForm({ courseId, onCreated }: { courseId: number; onCreated: 
 }
 
 function ChapterEditForm({ chapter, onDone }: { chapter: Chapter; onDone: () => Promise<void> | void }) {
+  const slugSync = useTitleSlug();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: chapter.title, slug: chapter.slug, description: chapter.description ?? '' });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -381,8 +466,8 @@ function ChapterEditForm({ chapter, onDone }: { chapter: Chapter; onDone: () => 
     <form className="grid gap-3 rounded-[10px] border-2 border-ink bg-paper-muted p-4" onSubmit={onSave}>
       {message ? <div className="rounded-[10px] border-2 border-ink bg-vital-red p-3 text-sm font-bold">{message}</div> : null}
       <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Title" value={form.title} onChange={(value) => setForm((c) => ({ ...c, title: value }))} error={errors.title?.[0]} />
-        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((c) => ({ ...c, slug: value }))} error={errors.slug?.[0]} />
+        <FormField label="Title" value={form.title} onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))} error={errors.title?.[0]} />
+        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))} error={errors.slug?.[0]} />
       </div>
       <FormField label="Description" value={form.description} onChange={(value) => setForm((c) => ({ ...c, description: value }))} textarea error={errors.description?.[0]} />
       <div className="flex items-center gap-2">
@@ -398,6 +483,7 @@ function ChapterEditForm({ chapter, onDone }: { chapter: Chapter; onDone: () => 
 }
 
 function AddTopicForm({ chapterId, onCreated }: { chapterId: number; onCreated: () => Promise<void> | void }) {
+  const slugSync = useTitleSlug();
   const [form, setForm] = useState({ title: '', slug: '' });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState('');
@@ -415,6 +501,7 @@ function AddTopicForm({ chapterId, onCreated }: { chapterId: number; onCreated: 
         slug: form.slug || slugify(form.title),
       });
       setForm({ title: '', slug: '' });
+      slugSync.resetSlugSync();
       await onCreated();
     } catch (saveError) {
       if (saveError instanceof ApiError) {
@@ -432,8 +519,8 @@ function AddTopicForm({ chapterId, onCreated }: { chapterId: number; onCreated: 
     <div className="rounded-[10px] border-2 border-dashed border-ink p-4">
       {message ? <div className="mb-3 rounded-[10px] border-2 border-ink bg-vital-red p-3 text-sm font-bold">{message}</div> : null}
       <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={onSubmit}>
-        <FormField label="Topic title" value={form.title} onChange={(value) => setForm((c) => ({ ...c, title: value, slug: c.slug || slugify(value) }))} error={errors.title?.[0]} />
-        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((c) => ({ ...c, slug: value }))} error={errors.slug?.[0]} />
+        <FormField label="Topic title" value={form.title} onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))} error={errors.title?.[0]} />
+        <FormField label="Slug" value={form.slug} onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))} error={errors.slug?.[0]} />
         <div className="flex items-end">
           <Button type="submit" disabled={submitting} icon={<Plus className="h-4 w-4" />}>
             Add topic
@@ -461,6 +548,7 @@ function TopicRow({
   onDeleted: () => Promise<void> | void;
   onChanged: () => Promise<void> | void;
 }) {
+  const slugSync = useTitleSlug();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: topic.title, slug: topic.slug });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -524,8 +612,8 @@ function TopicRow({
         <form className="grid gap-3 border-t-2 border-ink bg-paper-muted p-3" onSubmit={onSave}>
           {message ? <div className="rounded-[10px] border-2 border-ink bg-vital-red p-3 text-sm font-bold">{message}</div> : null}
           <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Title" value={form.title} onChange={(value) => setForm((c) => ({ ...c, title: value }))} error={errors.title?.[0]} />
-            <FormField label="Slug" value={form.slug} onChange={(value) => setForm((c) => ({ ...c, slug: value }))} error={errors.slug?.[0]} />
+            <FormField label="Title" value={form.title} onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))} error={errors.title?.[0]} />
+            <FormField label="Slug" value={form.slug} onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))} error={errors.slug?.[0]} />
           </div>
           <div className="flex items-center gap-2">
             <Button type="submit" disabled={submitting}>
@@ -769,9 +857,3 @@ function ContentItemForm({ topicId, onCreated }: { topicId: number; onCreated: (
   );
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}

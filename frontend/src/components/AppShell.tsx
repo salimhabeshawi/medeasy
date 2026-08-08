@@ -27,7 +27,7 @@ export function AppShell() {
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] border-2 border-ink bg-vital-red shadow-hard">
               <Activity className="h-5 w-5" aria-hidden="true" />
             </span>
-            <span>MedEasy</span>
+            <span>{user?.role === 'admin' ? 'MedEasy Admin' : 'MedEasy'}</span>
           </NavLink>
           <button
             type="button"
@@ -50,13 +50,15 @@ export function AppShell() {
             ) : null}
           </nav>
           <div className="hidden items-center gap-3 md:flex">
-            <NavLink
-              to="/profile"
-              title={user?.name}
-              className="pressable inline-flex h-10 w-10 items-center justify-center rounded-[10px] border-2 border-ink bg-paper-muted shadow-hard"
-            >
-              <User className="h-5 w-5" aria-hidden="true" />
-            </NavLink>
+            {user?.role !== 'admin' ? (
+              <NavLink
+                to="/profile"
+                title={user?.name}
+                className="pressable inline-flex h-10 w-10 items-center justify-center rounded-[10px] border-2 border-ink bg-paper-muted shadow-hard"
+              >
+                <User className="h-5 w-5" aria-hidden="true" />
+              </NavLink>
+            ) : null}
             <Button variant="secondary" onClick={handleLogout} icon={<LogOut className="h-4 w-4" />}>
               Logout
             </Button>

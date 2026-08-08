@@ -1,8 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom';
+import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './providers/AuthProvider';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { StudentRoute } from './components/StudentRoute';
+import { RootRedirect } from './components/RootRedirect';
 import { AppShell } from './components/AppShell';
 import { AdminRoute } from './components/AdminRoute';
 import { LoginPage } from './pages/LoginPage';
@@ -18,7 +20,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import './styles.css';
 
 const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
+  { path: '/', element: <RootRedirect /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   {
@@ -27,11 +29,16 @@ const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: '/dashboard', element: <DashboardPage /> },
-          { path: '/courses', element: <CoursesPage /> },
-          { path: '/courses/:courseSlug', element: <CourseDetailPage /> },
-          { path: '/topics/:topicId', element: <TopicPage /> },
-          { path: '/profile', element: <ProfilePage /> },
+          {
+            element: <StudentRoute />,
+            children: [
+              { path: '/dashboard', element: <DashboardPage /> },
+              { path: '/courses', element: <CoursesPage /> },
+              { path: '/courses/:courseSlug', element: <CourseDetailPage /> },
+              { path: '/topics/:topicId', element: <TopicPage /> },
+              { path: '/profile', element: <ProfilePage /> },
+            ],
+          },
           {
             element: <AdminRoute />,
             children: [

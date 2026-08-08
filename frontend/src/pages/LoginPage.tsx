@@ -2,13 +2,14 @@ import { FormEvent, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Activity } from 'lucide-react';
 import { ApiError } from '../lib/api';
+import { homePath } from '../lib/navigation';
 import { useAuth } from '../providers/auth-context';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PasswordField } from '../components/PasswordField';
 
 export function LoginPage() {
-  const { login, token } = useAuth();
+  const { login, token, user, isBooting } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -17,8 +18,12 @@ export function LoginPage() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  if (isBooting) {
+    return null;
+  }
+
   if (token) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -28,9 +33,10 @@ export function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login({ email, password });
-      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard';
-      navigate(from, { replace: true });
+      const loggedIn = await login({ email, password });
+      const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname;
+      const target = loggedIn.role === 'admin' || !from ? homePath(loggedIn) : from;
+      navigate(target, { replace: true });
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.errors ?? {});
@@ -77,7 +83,7 @@ export function LoginPage() {
             autoComplete="current-password"
             required
           />
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" variant="green" disabled={submitting}>
             {submitting ? 'Checking' : 'Log in'}
           </Button>
         </form>

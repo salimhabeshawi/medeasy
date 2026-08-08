@@ -66,8 +66,10 @@ select {
   font: inherit;
 }
 
-a {
-  color: inherit;
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 :focus-visible {

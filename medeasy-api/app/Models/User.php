@@ -21,6 +21,8 @@ class User extends Authenticatable
         'password',
         'role',
         'is_super_admin',
+        'year',
+        'semester',
     ];
 
     protected $hidden = [
@@ -34,6 +36,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
+            'year' => 'integer',
+            'semester' => 'integer',
         ];
     }
 

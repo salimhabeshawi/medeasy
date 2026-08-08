@@ -47,14 +47,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tokenStore.set(response.token);
     setToken(response.token);
     setUser(response.user);
+    return response.user;
   }, []);
 
   const register = useCallback(
-    async (input: { name: string; email: string; password: string; password_confirmation: string }) => {
+    async (input: { name: string; email: string; password: string; password_confirmation: string; year: number; semester: number }) => {
       const response = await api.register(input);
       tokenStore.set(response.token);
       setToken(response.token);
       setUser(response.user);
+      return response.user;
     },
     [],
   );

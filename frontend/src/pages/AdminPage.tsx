@@ -1,6 +1,8 @@
 import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../lib/api';
+import { slugify } from '../lib/slugify';
+import { useTitleSlug } from '../lib/use-title-slug';
 import type { Course } from '../types/api';
 import { Button, ButtonLink } from '../components/Button';
 import { Card } from '../components/Card';
@@ -12,10 +14,22 @@ export function AdminPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ title: '', slug: '', description: '', is_published: true });
+  const [form, setForm] = useState({ title: '', slug: '', description: '', year: 1, semester: 1 });
+  const slugSync = useTitleSlug();
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
-  const [formMessage, setFormMessage] = useState('');
+  const [flash, setFlash] = useState<{ text: string; kind: 'success' | 'error' } | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+
+  function showFlash(text: string, kind: 'success' | 'error' = 'success') {
+    setFlash({ text, kind });
+    window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash(null), 3000);
+  }
+
+  useEffect(() => {
+    return () => window.clearTimeout(flashTimer.current);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -43,17 +57,13 @@ export function AdminPage() {
     };
   }, []);
 
-  function update(field: keyof typeof form, value: string | boolean) {
+  function update(field: keyof typeof form, value: string | number | boolean) {
     setForm((current) => ({ ...current, [field]: value }));
-    if (field === 'title' && !form.slug) {
-      setForm((current) => ({ ...current, slug: slugify(String(value)) }));
-    }
   }
 
   async function onCreate(event: FormEvent) {
     event.preventDefault();
     setFormErrors({});
-    setFormMessage('');
     setSubmitting(true);
 
     try {
@@ -61,17 +71,19 @@ export function AdminPage() {
         title: form.title,
         slug: form.slug || slugify(form.title),
         description: form.description || null,
-        is_published: form.is_published,
+        year: form.year,
+        semester: form.semester,
       });
       setCourses((current) => [created, ...current]);
-      setForm({ title: '', slug: '', description: '', is_published: true });
-      setFormMessage(`"${created.title}" published to the library.`);
+      setForm({ title: '', slug: '', description: '', year: 1, semester: 1 });
+      slugSync.resetSlugSync();
+      showFlash(`"${created.title}" saved as a draft. Publish it to share it with students.`);
     } catch (saveError) {
       if (saveError instanceof ApiError) {
         setFormErrors(saveError.errors ?? {});
-        setFormMessage(saveError.message);
+        showFlash(saveError.message, 'error');
       } else {
-        setFormMessage('The create request failed before the API could answer.');
+        showFlash('The create request failed before the API could answer.', 'error');
       }
     } finally {
       setSubmitting(false);
@@ -87,7 +99,7 @@ export function AdminPage() {
       await api.deleteCourse(course.id);
       setCourses((current) => current.filter((item) => item.id !== course.id));
     } catch (deleteError) {
-      setFormMessage(deleteError instanceof Error ? deleteError.message : 'Delete failed.');
+      showFlash(deleteError instanceof Error ? deleteError.message : 'Delete failed.', 'error');
     }
   }
 
@@ -122,24 +134,24 @@ export function AdminPage() {
       <section className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         <Card className="h-fit">
           <h2 className="font-display text-2xl font-bold">New course</h2>
-          {formMessage ? (
-            <div className={`mt-3 rounded-[10px] border-2 border-ink p-3 text-sm font-bold ${Object.keys(formErrors).length ? 'bg-vital-red' : 'bg-pulse-green'}`}>
-              {formMessage}
+          {flash ? (
+            <div className={`mt-3 rounded-[10px] border-2 border-ink p-3 text-sm font-bold ${flash.kind === 'success' ? 'bg-pulse-green' : 'bg-vital-red'}`}>
+              {flash.text}
             </div>
           ) : null}
           <form className="mt-4 grid gap-4" onSubmit={onCreate}>
             <FormField
               label="Title"
               value={form.title}
-              onChange={(value) => update('title', value)}
+              onChange={(value) => setForm((current) => slugSync.updateTitle(current, value))}
               placeholder="e.g. Physiology I"
               error={formErrors.title?.[0]}
             />
             <FormField
               label="Slug"
               value={form.slug}
-              onChange={(value) => update('slug', value)}
-              placeholder="e.g. physiology-1"
+              onChange={(value) => setForm((current) => slugSync.updateSlug(current, value))}
+              placeholder="e.g. physiology-i"
               error={formErrors.slug?.[0]}
             />
             <FormField
@@ -149,15 +161,40 @@ export function AdminPage() {
               textarea
               error={formErrors.description?.[0]}
             />
-            <label className="flex items-center gap-2 font-semibold">
-              <input
-                type="checkbox"
-                className="h-5 w-5 border-2 border-ink"
-                checked={form.is_published}
-                onChange={(event) => update('is_published', event.target.checked)}
-              />
-              Published (visible to students)
-            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="grid gap-2 font-semibold">
+                Year
+                <select
+                  className="min-h-12 border-2 border-ink bg-paper px-3 shadow-hard"
+                  value={form.year}
+                  onChange={(event) => update('year', Number(event.target.value))}
+                >
+                  {Array.from({ length: 7 }, (_, index) => index + 1).map((value) => (
+                    <option key={value} value={value}>
+                      Year {value}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.year?.[0] ? <span className="text-sm font-bold text-vital-red">{formErrors.year[0]}</span> : null}
+              </label>
+              <label className="grid gap-2 font-semibold">
+                Semester
+                <select
+                  className="min-h-12 border-2 border-ink bg-paper px-3 shadow-hard"
+                  value={form.semester}
+                  onChange={(event) => update('semester', Number(event.target.value))}
+                >
+                  {[1, 2].map((value) => (
+                    <option key={value} value={value}>
+                      Semester {value}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.semester?.[0] ? (
+                  <span className="text-sm font-bold text-vital-red">{formErrors.semester[0]}</span>
+                ) : null}
+              </label>
+            </div>
             <Button type="submit" disabled={submitting} icon={<Plus className="h-4 w-4" />}>
               {submitting ? 'Creating' : 'Create course'}
             </Button>
@@ -183,6 +220,9 @@ export function AdminPage() {
                     >
                       {course.is_published ? 'published' : 'draft'}
                     </span>
+                    <span className="mt-2 ml-2 inline-block rounded-full border-2 border-ink bg-paper-muted px-2 py-0.5 font-mono text-[11px] font-bold">
+                      Y{course.year} / S{course.semester}
+                    </span>
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -205,11 +245,4 @@ export function AdminPage() {
       </section>
     </div>
   );
-}
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
 }

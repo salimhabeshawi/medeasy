@@ -6,6 +6,8 @@ export interface User {
   email: string;
   role: Role;
   is_super_admin?: boolean;
+  year?: number | null;
+  semester?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -21,6 +23,8 @@ export interface Course {
   slug: string;
   description: string | null;
   is_published: boolean;
+  year: number;
+  semester: number;
   chapters?: Chapter[];
   created_at?: string;
   updated_at?: string;

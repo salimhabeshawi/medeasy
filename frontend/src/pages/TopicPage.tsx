@@ -1,5 +1,6 @@
 import { ArrowLeft, CheckCircle2, ExternalLink, FileText, PanelLeftOpen, XCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Link, useParams } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
@@ -20,6 +21,37 @@ export function TopicPage() {
   const [progressMessage, setProgressMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(300);
+  const [resizing, setResizing] = useState(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(300);
+
+  const SIDEBAR_MIN = 220;
+  const SIDEBAR_MAX = 480;
+
+  function handleResizeStart(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setResizing(true);
+    resizeStartX.current = event.clientX;
+    resizeStartWidth.current = sidebarWidth;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleResizeMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!resizing) {
+      return;
+    }
+    const maxWidth = Math.min(SIDEBAR_MAX, window.innerWidth - 200);
+    const next = Math.max(SIDEBAR_MIN, Math.min(maxWidth, resizeStartWidth.current + (event.clientX - resizeStartX.current)));
+    setSidebarWidth(next);
+  }
+
+  function handleResizeEnd(event: React.PointerEvent<HTMLDivElement>) {
+    setResizing(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -97,12 +129,30 @@ export function TopicPage() {
   }
 
   const status = topicStatus(topic);
+  const outlineVisible = sidebarOpen && outline !== null;
+  const articleStyle = outlineVisible ? ({ '--sidebar-w': `${sidebarWidth}px` } as CSSProperties) : undefined;
 
   return (
-    <article className={`grid gap-6 ${sidebarOpen ? 'lg:grid-cols-[300px_minmax(0,1fr)]' : ''}`}>
-      {sidebarOpen && outline ? (
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <CourseOutline outline={outline} currentTopicId={topic.id} onCollapse={() => setSidebarOpen(false)} />
+    <article
+      className={`grid gap-6 ${outlineVisible ? 'lg:[grid-template-columns:var(--sidebar-w)_minmax(0,1fr)]' : ''} ${resizing ? 'select-none' : ''}`}
+      style={articleStyle}
+    >
+      {outlineVisible && outline ? (
+        <aside className="relative flex items-start min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <div className="min-w-0 flex-1">
+            <CourseOutline outline={outline} onCollapse={() => setSidebarOpen(false)} />
+          </div>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            title="Drag to resize"
+            onPointerDown={handleResizeStart}
+            onPointerMove={handleResizeMove}
+            onPointerUp={handleResizeEnd}
+            onPointerCancel={handleResizeEnd}
+            className="absolute inset-y-0 right-0 hidden w-3 cursor-col-resize touch-none lg:block"
+          />
         </aside>
       ) : null}
       <div className="grid gap-6 content-start lg:mx-auto lg:w-full lg:max-w-4xl">

@@ -15,6 +15,8 @@ class CourseResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'is_published' => $this->is_published,
+            'year' => $this->year,
+            'semester' => $this->semester,
             'chapters' => ChapterResource::collection($this->whenLoaded('chapters')),
             'completion_percentage' => $this->when(isset($this->completion_percentage), $this->completion_percentage),
             'completed_topics_count' => $this->when(isset($this->completed_topics_count), $this->completed_topics_count),

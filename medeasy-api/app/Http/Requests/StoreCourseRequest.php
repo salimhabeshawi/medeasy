@@ -27,6 +27,8 @@ class StoreCourseRequest extends FormRequest
             ],
             'description' => ['nullable', 'string'],
             'is_published' => ['sometimes', 'boolean'],
+            'year' => ['required', 'integer', 'min:1', 'max:7'],
+            'semester' => ['required', 'integer', 'min:1', 'max:2'],
         ];
     }
 }
